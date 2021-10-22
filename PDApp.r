@@ -19,10 +19,10 @@ data <- read.csv("Fall2020.csv")
 
 data$Date <- as.Date(data$Date, "%m/%d/%y")
 deg2rad <- function(deg) {(deg * pi) / (180)}
-ddf_left_y <- (340*cos(pi/4))
-ddf_left_x <- (340*sin(pi / 4)) * -1
-ddf_right_x <- (325*sin(pi / 4))
-ddf_right_y <- (325*cos(pi / 4))
+left_y <- (340*cos(pi/4))
+left_x <- (340*sin(pi / 4)) * -1
+right_x <- (325*sin(pi / 4))
+right_y <- (325*cos(pi / 4))
 
 data <- data %>%
     mutate(Type = case_when(

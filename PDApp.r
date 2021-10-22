@@ -425,9 +425,9 @@ server <- function(input, output, session) {
         }) 
         ggplot(spray_filter(), aes(x = Distance*sin(dRadian), y =cos(dRadian)*Distance , color = PlayResult)) +
             geom_point() +
-            geom_segment(aes(x = 0, xend = ddf_left_x, y = 0, yend = ddf_left_y),color = "black") +
-            geom_segment(aes(x = 0, xend = ddf_right_x, y = 0, yend = ddf_right_y),color = "black") +
-            geom_curve(aes(x = ddf_left_x, xend = ddf_right_x, y = ddf_left_y, yend = ddf_right_y),
+            geom_segment(aes(x = 0, xend = left_x, y = 0, yend = left_y),color = "black") +
+            geom_segment(aes(x = 0, xend = right_x, y = 0, yend = right_y),color = "black") +
+            geom_curve(aes(x = left_x, xend = right_x, y = left_y, yend = right_y),
                        curvature = -0.66, color = "black") +
             geom_curve(aes(x = -(75 / cos(pi/4)), xend = (75 / cos(pi/4)),
                            y= (75 / cos(pi/4)), yend = (75 / cos(pi/4))),

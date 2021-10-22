@@ -12,10 +12,17 @@ library(shinydashboard)
 library(tidyverse)
 library(DT)
 library(bslib)
+library(janitor)
+library(readr)
 
-data <- read.csv("Fall2021.csv")
+data <- read.csv("Fall2020.csv")
 
 data$Date <- as.Date(data$Date, "%m/%d/%y")
+deg2rad <- function(deg) {(deg * pi) / (180)}
+ddf_left_y <- (340*cos(pi/4))
+ddf_left_x <- (340*sin(pi / 4)) * -1
+ddf_right_x <- (325*sin(pi / 4))
+ddf_right_y <- (325*cos(pi / 4))
 
 data <- data %>%
     mutate(Type = case_when(
@@ -24,6 +31,59 @@ data <- data %>%
         TaggedPitchType == "Slider" ~ "SL",
         TaggedPitchType == "Curveball" ~ "CB"),
         Count = paste(Balls, Strikes, sep = "-"))
+
+squat_jump <- read_csv("squat_jump_master.csv")
+squat_jump <- squat_jump %>%
+    filter(Tags == "Profiling")
+
+squat_jump <- clean_names(squat_jump)
+
+power_output <- squat_jump %>%
+    select(name, type, peak_propulsive_power, peak_propulsive_force)
+
+mean(power_output$peak_propulsive_power) # 4782.293 is the mean of the dataset
+mean(power_output$peak_propulsive_force) # 2105.867 is the mean of the dataset
+
+sd(power_output$peak_propulsive_power) # 837.1419 is the sd of the dataset
+sd(power_output$peak_propulsive_force) # 305.2852 is the sd of the dataset
+
+power_output <- power_output %>%
+    mutate(power_z_score = (peak_propulsive_power - 4805.314) / 930.0187,
+           force_z_score = (peak_propulsive_force - 2034.903) / 331.229) %>%
+    filter(name != "Weston Mazey")
+
+power_output_max <- power_output %>%
+    group_by(name) %>%
+    slice(which.max(peak_propulsive_power))
+
+
+sj_power <- squat_jump %>%
+    filter(name != "Weston Mazey") %>%
+    group_by(name) %>%
+    slice(which.max(peak_propulsive_power)) %>%
+    select(name, type, peak_propulsive_power) %>%
+    mutate(peak_propulsive_power = round(peak_propulsive_power)) %>%
+    arrange(desc(peak_propulsive_power))
+
+sj_force <- squat_jump %>%
+    filter(name != "Weston Mazey") %>%
+    group_by(name) %>%
+    slice(which.max(peak_propulsive_force)) %>%
+    select(name, type, peak_propulsive_force) %>%
+    arrange(desc(peak_propulsive_force))
+
+# Read in sim games and color code velocity 
+sim_games <- read_csv("fall_sim_games.csv")
+sim_games %>%
+    separate(Pitcher, c("last", "first")) -> sim_games2
+sim_games2$name <- paste(sim_games2$first, sim_games2$last, sep = " ")
+
+merge_df <- sim_games2 %>%
+    group_by(name) %>%
+    summarize('Velo' = mean(RelSpeed, na.rm = T))
+
+power_viz <- power_output_max %>%
+    left_join(merge_df, by = "name")
 
 # Define UI for application that draws a histogram
 ui <- navbarPage(title = "WVU Player Development",
@@ -49,10 +109,10 @@ ui <- navbarPage(title = "WVU Player Development",
                                       ),
                                       fluidRow(
                                           column(5, selectInput(inputId = "Date", label = "Select Game", choices = ""))
-                                      ),
-                                      fluidRow(
-                                          column(4, selectInput(inputId = "Count", label = "Select Count", choices = sort(unique(data$Count))))
-                                               )
+                                      )
+                                      # fluidRow(
+                                      #     column(4, selectInput(inputId = "Count", label = "Select Count", choices = sort(unique(data$Count))))
+                                      #          )
                                   ),
                           mainPanel(
                               wellPanel(style = "background: white; border-color:black; border-width:2px",
@@ -82,10 +142,40 @@ ui <- navbarPage(title = "WVU Player Development",
                           )
                           )
                           )),
-                 tabPanel(title = "Hitting",
-                          h2("Hitting Development")),
+                 # tabPanel(title = "Hitting",
+                 #          fluidPage(
+                 #              sidebarLayout(
+                 #                  sidebarPanel(
+                 #                      fluidRow(
+                 #                          column(6, selectInput(inputId = "Batter", label = "Select Batter", choices = sort(unique(data$Batter))))
+                 #                      ),
+                 #                      fluidRow(
+                 #                          column(5, selectInput(inputId = "Date", label = "Select Game", choices = ""))
+                 #                      )),
+                 #                  mainPanel(
+                 #                      wellPanel(style = "background: white; border-color:black; border-width:2px",
+                 #                                fluidRow(
+                 #                                    column(2, img(src = "wv_pic.png", height = 100, width = 100), align = "center"),
+                 #                                    column(4, h2(strong(textOutput("selected_pitcher"))), hr(style="border-color: black;"), style = "padding-right:0px;"),
+                 #                                    column(6, h2("Hitting Development"), hr(style="border-color: black;"), h2(textOutput("selected_game")), align = "center", style = "padding-left:0px;"))),
+                 #                      tabsetPanel(
+                 #                          type = "tabs",
+                 #                          tabPanel("Post-Game Report",
+                 #                                   wellPanel(style = "background: white; border-color:black; border-width:3px",
+                 #                                             fluidRow(
+                 #                                                 column(width = 10.5, h3(strong("")), dataTableOutput("pitcher_summary_table"), align = "center")
+                 #                                             ), br(), br()
+                 #                                   ))))))),
+                          
                  tabPanel(title = "Sport Sciences",
-                          h2("Coming Soon.")),
+                          tabsetPanel(
+                                      type = "tabs",
+                            tabPanel("Squat Jump",
+                              fluidRow(plotOutput("force_plot"), align = "center"),
+                              fluidRow(
+                                  column(5, h3(strong("Power Leaderboards")), dataTableOutput("power_table"), align = "center"),
+                                  column(7, h3(strong("Force Leaderboards")), dataTableOutput("force_table"), align = "center"))
+                          ))),
                  inverse = T
 )
 
@@ -108,12 +198,13 @@ server <- function(input, output, session) {
     output$selected_pitcher <- renderText({paste(input$Pitcher)})
     
     output$selected_game <- renderText({paste(input$Date)})
+    output$selected_batter <- renderText({paste(input$Batter)})
     
-    output$count <- renderText({paste(input$Count)})
-    
-    observeEvent(input$Count,
-                 updateSelectInput(session, inputId = "Count", label = "Select Count",
-                                   choices = sort(unique(data$Count[data$Pitcher == input$Pitcher]))))
+    # output$count <- renderText({paste(input$Count)})
+    # 
+    # observeEvent(input$Count,
+    #              updateSelectInput(session, inputId = "Count", label = "Select Count",
+    #                                choices = sort(unique(data$Count[data$Pitcher == input$Pitcher]))))
     
     output$pitcher_summary_table <- renderDataTable({
         table <- data %>%
@@ -212,7 +303,7 @@ server <- function(input, output, session) {
             geom_rect(xmin = -1.10833333,
                       xmax = 1.10833333, 
                       ymin = 1.16666667,
-                      ymax = 3.83333333, color = "black", linetype = "dashed", fill = "transparent") #Shadow Zone +
+                      ymax = 3.83333333, color = "black", linetype = "dashed", fill = "transparent") + #Shadow Zone +
             geom_segment(aes(x = 0.275, y = 1.5, xend = 0.275, yend = 3.5), color = "black") +
             geom_segment(aes(x = -0.275, y = 1.5, xend = -0.275, yend = 3.5), color = "black") +
             geom_segment(aes(x = -0.83, y = 2.83, xend = 0.83, yend = 2.83), color = "black") +
@@ -303,6 +394,51 @@ server <- function(input, output, session) {
                   legend.title = element_blank(),
                   plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
     },width = 350, height = 350)
+    
+    output$power_table <- renderDataTable(sj_power, options = list(pagelength=5))
+    output$force_table <- renderDataTable(sj_force, options = list(pagelength=5))
+    
+    output$force_plot <- renderPlot(
+        ggplot(power_viz, aes(power_z_score, force_z_score, color = Velo)) +
+            geom_point() +
+            scale_x_continuous("Z-Score Squat Jump Peak Power", limits = c(-4,4), breaks = seq(-4,4, by = 1)) +
+            scale_y_continuous("Z-Score Peak Force", limits = c(-4,4), breaks = seq(-4,4,by = 1)) +
+            geom_hline(yintercept = 0) +
+            geom_vline(xintercept = 0) +
+            annotate(x=-3, y = 3, geom = "text", label = "High Force Low Power", color = "red") +
+            annotate(geom = "text", label = "High Force High Power", color = "red", x = 2, y = 3) +
+            annotate(geom = "text", label = "Low Force Low Power", x = -3, y = -1, color = "red") +
+            annotate(geom = "text", label = "Low Force High Power", color = "red", x = 3, y = -2) +
+            geom_text(aes(label= ifelse(power_z_score > quantile(power_z_score, 0.90),
+                                        as.character(name),'')),hjust=0,vjust=0) +
+            geom_text(aes(label= ifelse(power_z_score < quantile(power_z_score, 0.10),
+                                        as.character(name),'')),hjust=0,vjust=0) +
+            labs(title = "Net Peak Force vs Squat Jump Peak Power") +
+            theme_bw() 
+    )
+    
+    output$spray_chart <- renderPlot({
+        spray_filter <- reactive({
+            data %>%
+                filter(Batter == input$Batter, PlayResult != "Undefined", ExitSpeed != "NA") %>%
+                mutate(dRadian = deg2rad(Direction))
+        }) 
+        ggplot(spray_filter(), aes(x = Distance*sin(dRadian), y =cos(dRadian)*Distance , color = PlayResult)) +
+            geom_point() +
+            geom_segment(aes(x = 0, xend = ddf_left_x, y = 0, yend = ddf_left_y),color = "black") +
+            geom_segment(aes(x = 0, xend = ddf_right_x, y = 0, yend = ddf_right_y),color = "black") +
+            geom_curve(aes(x = ddf_left_x, xend = ddf_right_x, y = ddf_left_y, yend = ddf_right_y),
+                       curvature = -0.66, color = "black") +
+            geom_curve(aes(x = -(75 / cos(pi/4)), xend = (75 / cos(pi/4)),
+                           y= (75 / cos(pi/4)), yend = (75 / cos(pi/4))),
+                       curvature = -0.66, color = "black") +
+            coord_fixed() +
+            scale_fill_gradientn(colours = c("royalblue3", "white", "red2"))+
+            #scale_x_continuous(NULL, limits = c(-250, 250)) +
+            scale_y_continuous(NULL, limits = c(0, 450)) +
+            labs(x = "", y = "") +
+            theme_void()
+    }, width = 400, height = 400)
 }
 
 # Run the application 

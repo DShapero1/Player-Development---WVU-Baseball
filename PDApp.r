@@ -19,10 +19,7 @@ data <- read.csv("Fall2020.csv")
 
 data$Date <- as.Date(data$Date, "%m/%d/%y")
 deg2rad <- function(deg) {(deg * pi) / (180)}
-left_y <- (340*cos(pi/4))
-left_x <- (340*sin(pi / 4)) * -1
-right_x <- (325*sin(pi / 4))
-right_y <- (325*cos(pi / 4))
+
 
 data <- data %>%
     mutate(Type = case_when(
@@ -155,16 +152,8 @@ ui <- navbarPage(title = "WVU Player Development",
                  #                  mainPanel(
                  #                      wellPanel(style = "background: white; border-color:black; border-width:2px",
                  #                                fluidRow(
-                 #                                    column(2, img(src = "wv_pic.png", height = 100, width = 100), align = "center"),
-                 #                                    column(4, h2(strong(textOutput("selected_pitcher"))), hr(style="border-color: black;"), style = "padding-right:0px;"),
+                 #                                    column(2, img(src = "wv_pic.png", height = 100, width = 100), align = "center),
                  #                                    column(6, h2("Hitting Development"), hr(style="border-color: black;"), h2(textOutput("selected_game")), align = "center", style = "padding-left:0px;"))),
-                 #                      tabsetPanel(
-                 #                          type = "tabs",
-                 #                          tabPanel("Post-Game Report",
-                 #                                   wellPanel(style = "background: white; border-color:black; border-width:3px",
-                 #                                             fluidRow(
-                 #                                                 column(width = 10.5, h3(strong("")), dataTableOutput("pitcher_summary_table"), align = "center")
-                 #                                             ), br(), br()
                  #                                   ))))))),
                           
                  tabPanel(title = "Sport Sciences",
@@ -417,28 +406,6 @@ server <- function(input, output, session) {
             theme_bw() 
     )
     
-    output$spray_chart <- renderPlot({
-        spray_filter <- reactive({
-            data %>%
-                filter(Batter == input$Batter, PlayResult != "Undefined", ExitSpeed != "NA") %>%
-                mutate(dRadian = deg2rad(Direction))
-        }) 
-        ggplot(spray_filter(), aes(x = Distance*sin(dRadian), y =cos(dRadian)*Distance , color = PlayResult)) +
-            geom_point() +
-            geom_segment(aes(x = 0, xend = left_x, y = 0, yend = left_y),color = "black") +
-            geom_segment(aes(x = 0, xend = right_x, y = 0, yend = right_y),color = "black") +
-            geom_curve(aes(x = left_x, xend = right_x, y = left_y, yend = right_y),
-                       curvature = -0.66, color = "black") +
-            geom_curve(aes(x = -(75 / cos(pi/4)), xend = (75 / cos(pi/4)),
-                           y= (75 / cos(pi/4)), yend = (75 / cos(pi/4))),
-                       curvature = -0.66, color = "black") +
-            coord_fixed() +
-            scale_fill_gradientn(colours = c("royalblue3", "white", "red2"))+
-            #scale_x_continuous(NULL, limits = c(-250, 250)) +
-            scale_y_continuous(NULL, limits = c(0, 450)) +
-            labs(x = "", y = "") +
-            theme_void()
-    }, width = 400, height = 400)
 }
 
 # Run the application 
